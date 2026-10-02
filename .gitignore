@@ -1,6 +1,9 @@
 
 UI Design Inspo/
 assets/
+!public/
+!public/assets/
+!public/assets/*.png
 node_modules
 .next/
 node_modules/
@@ -8,3 +11,4 @@ node_modules/
 .env.local
 .DS_Store
 *.log
+generated/

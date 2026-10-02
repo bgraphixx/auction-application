@@ -8,7 +8,7 @@ RUN npm ci
 FROM base AS builder
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+RUN DATABASE_URL='postgresql://invalid:invalid@127.0.0.1:5432/fewchore' npm run db:generate && npm run build
 
 FROM node:22-alpine AS runner
 WORKDIR /app

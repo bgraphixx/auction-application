@@ -1,0 +1,229 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AuctionState {
+  DRAFT
+  PENDING_APPROVAL
+  LIVE
+  HIGHEST_BID_PENDING_APPROVAL
+  APPROVED_WINNER
+  PAYMENT_PENDING
+  PAID
+  PICKUP_SCHEDULED
+  PICKED_UP
+  CLOSED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+}
+
+enum PickupStatus {
+  PENDING
+  SCHEDULED
+  COMPLETED
+  MISSED
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+model user {
+  id            String   @id
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  role          String   @default("EMPLOYEE")
+  employeeId    String?  @unique
+  jobGrade      String?
+  department    String?
+  location      String?
+  status        String   @default("ACTIVE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  accounts      account[]
+  sessions      session[]
+  bids          Bid[]
+  watchlist     Watchlist[]
+  auditEvents   AuditEvent[] @relation("AuditActor")
+  approvals     WinnerApproval[] @relation("ApprovalReviewer")
+  paymentReviews PaymentProof[] @relation("PaymentReviewer")
+  disputes      Dispute[] @relation("DisputeReporter")
+}
+
+model session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model account {
+  id                    String   @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  user                  user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([providerId, accountId])
+}
+
+model verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([identifier])
+}
+
+model Auction {
+  id                String       @id @default(cuid())
+  reference         String       @unique
+  title             String
+  category          String
+  description       String
+  condition         String
+  conditionNotes    String?
+  knownDefects      String?
+  location          String
+  imageUrl          String?
+  startingPrice     Int
+  reservePrice      Int?
+  bidIncrement      Int          @default(10000)
+  currentBid        Int          @default(0)
+  bidCount          Int          @default(0)
+  startsAt          DateTime
+  endsAt            DateTime
+  paymentDeadline   DateTime
+  pickupDeadline    DateTime
+  antiSniping       Boolean      @default(true)
+  sensitive         Boolean      @default(false)
+  wipeProofUrl      String?
+  eligibilityNotes  String?
+  state             AuctionState @default(DRAFT)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  bids              Bid[]
+  watchlist         Watchlist[]
+  approval          WinnerApproval?
+  payment           PaymentProof?
+  pickup            Pickup?
+  disputes          Dispute[]
+  auditEvents       AuditEvent[]
+}
+
+model Bid {
+  id        String   @id @default(cuid())
+  amount    Int
+  createdAt DateTime @default(now())
+  auctionId String
+  bidderId  String
+  auction   Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  bidder    user     @relation(fields: [bidderId], references: [id], onDelete: Restrict)
+  @@index([auctionId, createdAt])
+}
+
+model Watchlist {
+  id        String   @id @default(cuid())
+  userId    String
+  auctionId String
+  createdAt DateTime @default(now())
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  auction   Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  @@unique([userId, auctionId])
+}
+
+model WinnerApproval {
+  id          String   @id @default(cuid())
+  auctionId   String   @unique
+  bidderId    String
+  reviewerId  String
+  approved    Boolean
+  reason      String?
+  createdAt   DateTime @default(now())
+  auction     Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  reviewer    user     @relation("ApprovalReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+}
+
+model PaymentProof {
+  id          String        @id @default(cuid())
+  auctionId   String        @unique
+  amount      Int
+  proofUrl    String?
+  status      PaymentStatus @default(PENDING)
+  submittedAt DateTime?
+  reviewedAt  DateTime?
+  reviewerId  String?
+  reason      String?
+  auction     Auction       @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  reviewer    user?         @relation("PaymentReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+}
+
+model Pickup {
+  id          String       @id @default(cuid())
+  auctionId   String       @unique
+  status      PickupStatus @default(PENDING)
+  scheduledAt DateTime?
+  completedAt DateTime?
+  evidenceUrl String?
+  notes       String?
+  auction     Auction      @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+}
+
+model Dispute {
+  id          String        @id @default(cuid())
+  auctionId   String
+  reporterId  String
+  reason      String
+  detail      String
+  status      DisputeStatus @default(OPEN)
+  resolution  String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  auction     Auction       @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  reporter    user          @relation("DisputeReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  auctionId String?
+  actorId   String?
+  action    String
+  before    Json?
+  after     Json?
+  reason    String?
+  createdAt DateTime @default(now())
+  auction   Auction? @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  actor     user?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  @@index([auctionId, createdAt])
+}
