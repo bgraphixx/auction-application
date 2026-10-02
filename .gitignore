@@ -1,0 +1,10 @@
+
+UI Design Inspo/
+assets/
+node_modules
+.next/
+node_modules/
+.env
+.env.local
+.DS_Store
+*.log
