@@ -1,144 +1,46 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
-type Asset = {
-  id: number;
-  title: string;
-  category: "IT assets" | "Vehicles" | "Furniture";
-  price: number;
-  bids: number;
-  time: string;
-  condition: string;
-  state: "Eligible · Live" | "Review · Vehicle";
-  watched: boolean;
-};
+export type Asset = { id: string; reference: string; title: string; category: string; description: string; condition: string; conditionNotes: string | null; knownDefects: string | null; location: string; photoKeys: string[]; price: number; bidIncrement: number; bids: number; startsAt: string; endsAt: string; paymentDeadline: string; pickupDeadline: string; paymentRules: string; pickupRules: string; state: string; sensitive: boolean; wipeVerified: boolean; watched: boolean; myBid: number | null; eligibility: { eligible: boolean; reason: string }; timeline: { id: string; amount: number; at: string }[] };
+const money = (amount: number) => `₦${amount.toLocaleString("en-NG")}`;
+const fileUrl = (key: string) => `/api/uploads/download?key=${encodeURIComponent(key)}`;
 
-const initialAssets: Asset[] = [
-  { id: 1, title: "Dell Latitude 7420", category: "IT assets", price: 485000, bids: 18, time: "03:42:18", condition: "Good", state: "Eligible · Live", watched: true },
-  { id: 2, title: "Toyota Hilux 2018", category: "Vehicles", price: 7850000, bids: 31, time: "1d 06h", condition: "Used", state: "Review · Vehicle", watched: false },
-  { id: 3, title: "Ergonomic chair lot", category: "Furniture", price: 210000, bids: 9, time: "2d 14h", condition: "Fair", state: "Eligible · Live", watched: false },
-  { id: 4, title: "HP EliteDisplay E243", category: "IT assets", price: 95000, bids: 6, time: "4d 02h", condition: "Good", state: "Eligible · Live", watched: false },
-  { id: 5, title: "Executive desk set", category: "Furniture", price: 175000, bids: 11, time: "5d 12h", condition: "Fair", state: "Eligible · Live", watched: true },
-  { id: 6, title: "Lenovo ThinkPad T14", category: "IT assets", price: 340000, bids: 14, time: "6d 01h", condition: "Good", state: "Eligible · Live", watched: false },
-];
-
-const money = (value: number) => `₦${value.toLocaleString("en-NG")}`;
-
-function AssetArt({ category }: { category: Asset["category"] }) {
-  return <div className={`asset-art ${category.toLowerCase().replace(" ", "-")}`} aria-hidden="true">
-    <span className="art-shadow" />
-    {category === "IT assets" && <><span className="laptop-screen" /><span className="laptop-base" /></>}
-    {category === "Vehicles" && <><span className="truck-body" /><span className="truck-window" /><span className="wheel one" /><span className="wheel two" /></>}
-    {category === "Furniture" && <><span className="chair-back" /><span className="chair-seat" /><span className="chair-leg one" /><span className="chair-leg two" /></>}
-  </div>;
-}
-
-export default function AuctionBrowser() {
+export default function AuctionBrowser({ initialAssets, profile }: { initialAssets: Asset[]; profile: { name: string; grade: string | null; location: string | null; status: string } }) {
   const [assets, setAssets] = useState(initialAssets);
-  const [section, setSection] = useState<"auctions" | "watchlist" | "myBids" | "payments" | "pickups">("auctions");
-  const [category, setCategory] = useState("All");
+  const [section, setSection] = useState<"auctions" | "watchlist">("auctions");
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("All");
+  const [sort, setSort] = useState<"ending" | "newest" | "price">("ending");
+  const [eligibleOnly, setEligibleOnly] = useState(false);
   const [selected, setSelected] = useState<Asset | null>(null);
   const [bidOpen, setBidOpen] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
-  const [toast, setToast] = useState("");
-
-  const visibleAssets = useMemo(() => assets.filter((asset) => {
-    const sectionMatch = section !== "watchlist" || asset.watched;
-    const categoryMatch = category === "All" || asset.category === category;
-    const queryMatch = asset.title.toLowerCase().includes(query.toLowerCase());
-    return sectionMatch && categoryMatch && queryMatch;
-  }), [assets, section, category, query]);
-
-  const active = selected ?? assets[0];
-  const notify = (message: string) => {
-    setToast(message);
-    window.setTimeout(() => setToast(""), 3200);
-  };
-  const toggleWatch = (id: number) => {
-    setAssets((current) => current.map((asset) => asset.id === id ? { ...asset, watched: !asset.watched } : asset));
-    notify("Watchlist updated");
-  };
-  const makeBid = () => {
-    setBidOpen(false);
-    setConfirmed(true);
-    setAssets((current) => current.map((asset) => asset.id === active.id ? { ...asset, price: asset.price + 15000, bids: asset.bids + 1 } : asset));
-  };
-
-  const nav = [
-    ["auctions", "Auctions"], ["watchlist", "Watchlist"], ["myBids", "My bids"], ["payments", "Payments"], ["pickups", "Pickups"],
-  ] as const;
-
-  return <main>
-    <header className="topbar">
-      <button className="brand" onClick={() => { setSelected(null); setSection("auctions"); }} aria-label="Fewchore auctions home">
-        <img src="/assets/ffcl_logo_full.png" alt="Fewchore" />
-      </button>
-      <div className="profile"><span>Employee</span><b>EI</b></div>
-    </header>
-
-    <aside className="sidebar">
-      <p className="sidebar-label">WORKSPACE</p>
-      <nav>
-        {nav.map(([key, label]) => <button key={key} className={section === key ? "nav-item active" : "nav-item"} onClick={() => { setSection(key); setSelected(null); }}><i />{label}</button>)}
-      </nav>
-      <div className="eligibility">
-        <strong>Eligible<br />to bid</strong>
-        <span>Grade M3 · Lagos · Active</span>
-        <p>All eligibility checks passed</p>
-      </div>
-    </aside>
-
-    <section className="content">
-      {!selected ? <>
-        <div className="eyebrow">{section === "watchlist" ? "SAVED ASSETS" : "LIVE AUCTIONS"}</div>
-        <div className="title-row">
-          <div><h1>{section === "watchlist" ? "Your watchlist" : section === "myBids" ? "Your bid activity" : section === "payments" ? "Payments" : section === "pickups" ? "Pickup status" : "Company assets"}</h1><p className="subtitle">{section === "auctions" ? "Browse approved assets and place eligible bids." : "Keep track of the actions that need your attention."}</p></div>
-          <div className="tool-row"><label className="search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search assets" /></label><button className="outline-button">Filters · 2</button><button className="outline-button hide-mobile">Ending soon</button></div>
-        </div>
-        {(section === "auctions" || section === "watchlist") && <div className="chips">
-          {["All", "Eligible", "IT assets", "Vehicles", "Furniture"].map((item) => <button key={item} className={category === item || (item === "Eligible" && category === "All") ? "chip selected" : "chip"} onClick={() => setCategory(item === "Eligible" ? "All" : item)}>{item}{item === "All" ? " · 24" : item === "Eligible" ? " · 18" : ""}</button>)}
-        </div>}
-        {section === "payments" || section === "pickups" || section === "myBids" ? <StatusPanel section={section} onOpen={() => setSelected(assets[0])} /> : <>
-          <div className="asset-grid">
-            {visibleAssets.map((asset) => <article className="asset-card" key={asset.id} onClick={() => setSelected(asset)}>
-              <AssetArt category={asset.category} />
-              <div className="asset-info"><div className="asset-meta"><span className={asset.state.startsWith("Eligible") ? "live" : "review"}>{asset.state}</span><time>{asset.time}</time></div><h2>{asset.title}</h2><div className="bid-line"><span>Highest bid<strong>{money(asset.price)}</strong></span><small>{asset.bids} bids</small></div></div>
-              <button className={asset.watched ? "watch-card watched" : "watch-card"} onClick={(event) => { event.stopPropagation(); toggleWatch(asset.id); }} aria-label="Toggle watchlist">{asset.watched ? "★" : "☆"}</button>
-            </article>)}
-          </div>
-          {visibleAssets.length === 0 && <div className="empty"><span>☆</span><h2>No assets found</h2><p>Try changing your search or filters.</p></div>}
-          <button className="watched-summary" onClick={() => setSection("watchlist")}><strong>{assets.filter((asset) => asset.watched).length} watched assets</strong><span>2 ending today →</span></button>
-        </>}
-      </> : <AuctionDetail asset={active} onBack={() => setSelected(null)} onWatch={() => toggleWatch(active.id)} onBid={() => setBidOpen(true)} />}
-    </section>
-
-    {bidOpen && <BidModal asset={active} onClose={() => setBidOpen(false)} onConfirm={makeBid} />}
-    {confirmed && <Confirmation asset={active} onClose={() => setConfirmed(false)} />}
-    {toast && <div className="toast"><span>✓</span>{toast}</div>}
-  </main>;
-}
-
-function StatusPanel({ section, onOpen }: { section: string; onOpen: () => void }) {
-  const items = section === "payments" ? ["No payments are due", "You will receive instructions after a winner is approved."] : section === "pickups" ? ["No pickups are scheduled", "Facilities will send you a time slot after payment verification."] : ["Dell Latitude 7420", "You are currently the highest bidder. Auction ends in 03:42:18."];
-  return <div className="status-panel"><div className="status-icon">{section === "myBids" ? "⌁" : "✓"}</div><div><h2>{items[0]}</h2><p>{items[1]}</p>{section === "myBids" && <button className="primary-button small" onClick={onOpen}>View auction</button>}</div></div>;
-}
-
-function AuctionDetail({ asset, onBack, onWatch, onBid }: { asset: Asset; onBack: () => void; onWatch: () => void; onBid: () => void }) {
-  const nextBid = asset.price + 15000;
-  return <div className="detail-page">
-    <button className="back-button" onClick={onBack}>← All auctions</button>
-    <div className="detail-top"><div><p className="eyebrow">LIVE AUCTION · {asset.category === "IT assets" ? "IT ASSET · WIPE PROOF VERIFIED" : asset.category.toUpperCase()}</p><h1>{asset.title}{asset.category === "IT assets" ? " Laptop" : ""}</h1><p className="subtitle">{asset.bids} anonymous bids · Pickup: Victoria Island</p></div><div className="detail-actions"><button className="outline-button" onClick={onWatch}>{asset.watched ? "Watching" : "Watch"}</button><button className="primary-button" onClick={onBid}>Place bid</button></div></div>
-    <div className="detail-layout"><div><div className="showcase"><AssetArt category={asset.category} /><div className="condition"><p>CONDITION</p><h2>{asset.condition}</h2><span>4-point check passed</span><div><b>{asset.category === "IT assets" ? "Laptop" : asset.category}</b>{asset.category === "IT assets" && <b>Sensitive</b>}</div></div></div><div className="rules"><article><h3>Payment rules</h3><p>Bank transfer only after winner approval.</p><p>Upload proof within 48 hours.</p><p>Finance verifies before pickup can be scheduled.</p></article><article><h3>Pickup rules</h3><p>Pickup from Victoria Island branch.</p><p>Facilities schedules after payment.</p><p>Employee ID required at handover.</p></article></div></div><aside className="bid-side"><div className="bid-box"><div className="bid-box-top"><p>CURRENT HIGHEST BID</p><span>Highest bid pending approval</span></div><h2>{money(asset.price)}</h2><div className="bid-stats"><div><span>Anonymous bids</span><strong>{asset.bids}</strong></div><div><span>Time left</span><strong>{asset.time}</strong></div></div><button className="primary-button full" onClick={onBid}>Bid {money(nextBid)}</button></div><div className="timeline"><h3>Anonymous bid timeline <span>Anonymous</span></h3>{[100, 80, 60].map((width, index) => <div className="time-row" key={width}><span>{["10:42", "10:21", "09:58"][index]}</span><i style={{ width: `${width}%` }} /><b>{money(asset.price - index * 15000)}</b></div>)}</div>{asset.category === "IT assets" && <div className="controls"><h3>Sensitive asset controls</h3><p>● IT wipe confirmation completed</p><p>● Certificate uploaded to audit trail</p></div>}</aside></div>
-  </div>;
-}
-
-function BidModal({ asset, onClose, onConfirm }: { asset: Asset; onClose: () => void; onConfirm: () => void }) {
-  const amount = asset.price + 15000;
-  return <div className="modal-wrap" role="dialog" aria-modal="true"><div className="modal"><button className="modal-close" onClick={onClose}>×</button><div className="modal-mark">₦</div><p className="eyebrow">CONFIRM YOUR BID</p><h2>Place a bid on<br />{asset.title}</h2><div className="confirm-amount"><span>Your bid</span><strong>{money(amount)}</strong><small>Minimum increment: ₦15,000</small></div><div className="notice"><b>What happens next</b><p>Your bid is anonymous. If it is the highest when the auction ends, it will be reviewed for approval before payment instructions are sent.</p></div><button className="primary-button full" onClick={onConfirm}>Confirm bid {money(amount)}</button><button className="text-button" onClick={onClose}>Cancel</button></div></div>;
-}
-
-function Confirmation({ asset, onClose }: { asset: Asset; onClose: () => void }) {
-  return <div className="modal-wrap" role="dialog" aria-modal="true"><div className="modal confirmation"><button className="modal-close" onClick={onClose}>×</button><div className="success-mark">✓</div><p className="eyebrow">BID RECEIVED</p><h2>Your bid is now the highest</h2><p className="confirmation-copy">Your bid for {asset.title} is anonymous and has been recorded. We’ll notify you if you are outbid.</p><button className="primary-button full" onClick={onClose}>Back to auction</button></div></div>;
+  const [amount, setAmount] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const categories = [...new Set(assets.map((item) => item.category))];
+  const visible = useMemo(() => assets.filter((item) => (section !== "watchlist" || item.watched) && (category === "All" || item.category === category) && (!eligibleOnly || item.eligibility.eligible) && `${item.title} ${item.reference} ${item.category}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => sort === "price" ? a.price - b.price : sort === "newest" ? Date.parse(b.startsAt) - Date.parse(a.startsAt) : Date.parse(a.endsAt) - Date.parse(b.endsAt)), [assets, section, category, eligibleOnly, query, sort]);
+  const active = selected ? assets.find((item) => item.id === selected.id) ?? selected : null;
+  async function watch(item: Asset) {
+    const response = await fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ auctionId: item.id, watched: !item.watched }) });
+    const result = await response.json();
+    if (!response.ok) return setMessage(result.error ?? "Could not update watchlist.");
+    setAssets((current) => current.map((asset) => asset.id === item.id ? { ...asset, watched: result.watched } : asset));
+  }
+  async function bid() {
+    if (!active) return;
+    setBusy(true); setMessage("");
+    const response = await fetch(`/api/auctions/${active.id}/bid`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amount }) });
+    const result = await response.json(); setBusy(false);
+    if (!response.ok) return setMessage(result.error ?? "Bid failed.");
+    setAssets((current) => current.map((item) => item.id === active.id ? { ...item, price: result.amount, bids: result.bidCount, endsAt: result.endsAt, myBid: result.amount, timeline: [{ id: result.id, amount: result.amount, at: new Date().toISOString() }, ...item.timeline] } : item));
+    setBidOpen(false); setMessage("Bid recorded. A highest bid is not a confirmed win until approved.");
+  }
+  function minimumBid(item: Asset) { return item.bids ? item.price + item.bidIncrement : item.price; }
+  function openBid(item: Asset) { setAmount(minimumBid(item)); setBidOpen(true); }
+  const canBid = (item: Asset) => item.state === "LIVE" && Date.parse(item.startsAt) <= Date.now() && Date.parse(item.endsAt) > Date.now() && item.eligibility.eligible;
+  return <main><header className="topbar"><button className="brand" onClick={() => { setSection("auctions"); setSelected(null); }} aria-label="Auctions home"><img src="/assets/ffcl_logo_full.png" alt="Fewchore" /></button><div className="profile"><Link href="/employee/dashboard">Dashboard</Link><span>{profile.name}</span><b>{profile.name.split(" ").map((word) => word[0]).join("").slice(0, 2).toUpperCase()}</b></div></header><aside className="sidebar"><p className="sidebar-label">EMPLOYEE WORKSPACE</p><nav><button className={`nav-item ${section === "auctions" ? "active" : ""}`} onClick={() => { setSection("auctions"); setSelected(null); }}><i />Auctions</button><button className={`nav-item ${section === "watchlist" ? "active" : ""}`} onClick={() => { setSection("watchlist"); setSelected(null); }}><i />Watchlist</button><Link className="nav-item" href="/employee/tasks"><i />My bids, payments & pickups</Link><Link className="nav-item" href="/employee/notifications"><i />Notifications</Link></nav><div className="eligibility"><strong>Employee profile</strong><span>{profile.grade ?? "Grade unset"} · {profile.location ?? "Location unset"}</span><p>{profile.status}. Eligibility is checked separately on each auction.</p></div></aside><section className="content">
+    {!active ? <><div className="eyebrow">{section === "watchlist" ? "SAVED AUCTIONS" : "APPROVED AUCTIONS"}</div><div className="title-row"><div><h1>{section === "watchlist" ? "Your watchlist" : "Company assets"}</h1><p className="subtitle">Every bid is anonymous and subject to winner approval.</p></div><div className="tool-row"><label className="search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search assets" /></label><select aria-label="Sort auctions" value={sort} onChange={(event) => setSort(event.target.value as typeof sort)}><option value="ending">Ending soon</option><option value="newest">Newest</option><option value="price">Lowest price</option></select></div></div><div className="chips"><button className={`chip ${category === "All" ? "selected" : ""}`} onClick={() => setCategory("All")}>All · {assets.length}</button><button className={`chip ${eligibleOnly ? "selected" : ""}`} onClick={() => setEligibleOnly(!eligibleOnly)}>Eligible · {assets.filter((item) => item.eligibility.eligible).length}</button>{categories.map((item) => <button className={`chip ${category === item ? "selected" : ""}`} key={item} onClick={() => setCategory(item)}>{item}</button>)}</div><div className="asset-grid">{visible.map((item) => <article className="asset-card" key={item.id}><button className="asset-open" onClick={() => setSelected(item)} aria-label={`View ${item.title}`}><div className="asset-art">{item.photoKeys[0] ? <img className="asset-photo" src={fileUrl(item.photoKeys[0])} alt={item.title} /> : <span>No photo</span>}</div><div className="asset-info"><div className="asset-meta"><span className={item.eligibility.eligible ? "live" : "review"}>{item.eligibility.eligible ? "Eligible" : "Not eligible"} · {item.state.replaceAll("_", " ")}</span><time>{new Date(item.endsAt).toLocaleString()}</time></div><h2>{item.title}</h2><div className="bid-line"><span>Highest bid<strong>{money(item.price)}</strong></span><small>{item.bids} anonymous bids</small></div></div></button><button className={`watch-card ${item.watched ? "watched" : ""}`} onClick={() => void watch(item)} aria-label={item.watched ? "Remove from watchlist" : "Add to watchlist"}>{item.watched ? "★" : "☆"}</button></article>)}</div>{visible.length === 0 && <div className="empty"><h2>No auctions found</h2><p>Try another search or filter.</p></div>}</> : <div className="detail-page"><button className="back-button" onClick={() => setSelected(null)}>← All auctions</button><div className="detail-top"><div><p className="eyebrow">{active.reference} · {active.category} · {active.state.replaceAll("_", " ")}</p><h1>{active.title}</h1><p className="subtitle">{active.location} · {active.condition} · {active.bids} anonymous bids</p></div><div className="detail-actions"><button className="outline-button" onClick={() => void watch(active)}>{active.watched ? "Watching" : "Watch"}</button><button className="primary-button" disabled={!canBid(active)} onClick={() => openBid(active)}>Place bid</button></div></div><div className="detail-layout"><div><div className="photo-gallery">{active.photoKeys.map((key, index) => <img src={fileUrl(key)} alt={`${active.title} photo ${index + 1}`} key={key} />)}</div><div className="rules"><article><h3>Asset details</h3><p>{active.description}</p><p>Condition: {active.condition}. {active.conditionNotes}</p><p>Known defects: {active.knownDefects || "None recorded"}</p>{active.sensitive && <p>IT wipe evidence: {active.wipeVerified ? "Verified" : "Not applicable or pending"}</p>}</article><article><h3>Payment and pickup</h3><p>{active.paymentRules}</p><p>Payment deadline: {new Date(active.paymentDeadline).toLocaleString()}</p><p>{active.pickupRules}</p><p>Pickup deadline: {new Date(active.pickupDeadline).toLocaleString()}</p></article></div></div><aside className="bid-side"><div className="bid-box"><div className="bid-box-top"><p>HIGHEST BID</p><span>{active.state === "HIGHEST_BID_PENDING_APPROVAL" ? "Highest bid pending approval" : "Subject to admin approval"}</span></div><h2>{money(active.price)}</h2><div className="bid-stats"><div><span>Anonymous bids</span><strong>{active.bids}</strong></div><div><span>Closes</span><strong className="small-date">{new Date(active.endsAt).toLocaleString()}</strong></div></div><p className={active.eligibility.eligible ? "form-success" : "form-error"}>{active.eligibility.reason}</p>{active.myBid !== null && <p>Your latest bid: {money(active.myBid)}</p>}<button className="primary-button full" disabled={!canBid(active)} onClick={() => openBid(active)}>Bid at least {money(minimumBid(active))}</button></div><div className="timeline"><h3>Anonymous bid timeline</h3>{active.timeline.length ? active.timeline.map((entry) => <div className="time-row" key={entry.id}><span>{new Date(entry.at).toLocaleTimeString()}</span><i /><b>{money(entry.amount)}</b></div>) : <p>No bids yet.</p>}</div><Link className="outline-button" href={`/employee/disputes/new?auctionId=${active.id}`}>Submit a dispute</Link></aside></div></div>}
+  </section>{bidOpen && active && <div className="modal-wrap" role="dialog" aria-modal="true" aria-label="Confirm bid"><div className="modal"><button className="modal-close" onClick={() => setBidOpen(false)}>×</button><p className="eyebrow">CONFIRM YOUR BID</p><h2>{active.title}</h2><label>Your bid (minimum {money(minimumBid(active))})<input type="number" min={minimumBid(active)} step="1" value={amount} onChange={(event) => setAmount(Number(event.target.value))} /></label><div className="notice">The bid is anonymous. Highest bidder status is pending admin approval after closing.</div><button className="primary-button full" disabled={busy || amount < minimumBid(active)} onClick={() => void bid()}>{busy ? "Placing…" : `Confirm ${money(amount)}`}</button></div></div>}{message && <div className="toast" role="status">{message}<button onClick={() => setMessage("")}>×</button></div>}</main>;
 }

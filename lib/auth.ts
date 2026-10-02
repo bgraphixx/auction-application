@@ -3,6 +3,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/mail";
+import { APIError } from "better-auth/api";
 
 export const auth = betterAuth({
   appName: "Fewchore Asset Disposal",
@@ -13,6 +14,7 @@ export const auth = betterAuth({
     minPasswordLength: 12,
     maxPasswordLength: 128,
     requireEmailVerification: true,
+    autoSignIn: false,
     revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, url }) => sendEmail({
       to: user.email,
@@ -21,6 +23,7 @@ export const auth = betterAuth({
     }),
   },
   emailVerification: {
+    sendOnSignUp: true,
     sendVerificationEmail: async ({ user, url }) => sendEmail({
       to: user.email,
       subject: "Verify your Fewchore account",
@@ -35,6 +38,24 @@ export const auth = betterAuth({
       department: { type: "string", required: false, input: false },
       location: { type: "string", required: false, input: false },
     },
+  },
+  databaseHooks: {
+    user: { create: {
+      before: async (newUser) => {
+        if (newUser.email.toLowerCase() === process.env.SUPER_ADMIN_EMAIL?.toLowerCase()) return { data: newUser };
+        const invite = await db.employeeInvitation.findUnique({ where: { email: newUser.email.toLowerCase() } });
+        if (!invite || invite.usedAt) throw new APIError("FORBIDDEN", { message: "An administrator invitation is required." });
+        return { data: { ...newUser, name: invite.name, role: invite.role, employeeId: invite.employeeId, jobGrade: invite.jobGrade, department: invite.department, location: invite.location } };
+      },
+      after: async (newUser) => {
+        if (newUser.email.toLowerCase() !== process.env.SUPER_ADMIN_EMAIL?.toLowerCase()) await db.employeeInvitation.updateMany({ where: { email: newUser.email.toLowerCase(), usedAt: null }, data: { usedAt: new Date() } });
+      },
+    } },
+    session: { create: { before: async (newSession) => {
+      const user = await db.user.findUnique({ where: { id: newSession.userId }, select: { status: true } });
+      if (user?.status !== "ACTIVE") throw new APIError("FORBIDDEN", { message: "This employee account is inactive." });
+      return { data: newSession };
+    } } },
   },
   trustedOrigins: [process.env.BETTER_AUTH_URL || "http://localhost:3000"],
   rateLimit: { enabled: true, window: 60, max: 10 },

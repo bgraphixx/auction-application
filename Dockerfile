@@ -5,6 +5,11 @@ FROM base AS dependencies
 COPY package.json package-lock.json* ./
 RUN npm ci
 
+FROM dependencies AS migrator
+COPY prisma ./prisma
+COPY prisma.config.ts ./prisma.config.ts
+CMD ["npx", "prisma", "migrate", "deploy"]
+
 FROM base AS builder
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .

@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 function spacesClient() {
@@ -14,4 +14,21 @@ export async function createUploadUrl(key: string, contentType: string) {
   const bucket = process.env.DO_SPACES_BUCKET;
   if (!bucket) throw new Error("DigitalOcean Spaces bucket is not configured");
   return getSignedUrl(spacesClient(), new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }), { expiresIn: 300 });
+}
+
+export async function createDownloadUrl(key: string) {
+  const bucket = process.env.DO_SPACES_BUCKET;
+  if (!bucket) throw new Error("DigitalOcean Spaces bucket is not configured");
+  return getSignedUrl(spacesClient(), new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 300 });
+}
+
+export async function uploadExists(key: string) {
+  const bucket = process.env.DO_SPACES_BUCKET;
+  if (!bucket) throw new Error("DigitalOcean Spaces bucket is not configured");
+  try {
+    const result = await spacesClient().send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+    return Boolean(result.ContentLength && result.ContentLength > 0 && result.ContentLength <= 10 * 1024 * 1024);
+  } catch {
+    return false;
+  }
 }

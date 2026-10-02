@@ -19,13 +19,10 @@ async function seed() {
     where: { email },
     data: { role: "SUPER_ADMIN", emailVerified: true, employeeId: "FFCL-ADMIN-001", jobGrade: "EXCO", department: "Technology", location: "Lagos" },
   });
-  await db.auction.upsert({
-    where: { reference: "FFCL-IT-001" },
-    update: {},
-    create: {
-      reference: "FFCL-IT-001", title: "Dell Latitude 7420", category: "IT assets", description: "Company-approved laptop with IT wipe evidence.", condition: "Good", location: "Victoria Island", startingPrice: 350000, currentBid: 485000, bidCount: 18, bidIncrement: 15000, startsAt: new Date(Date.now() - 86_400_000), endsAt: new Date(Date.now() + 13_200_000), paymentDeadline: new Date(Date.now() + 5 * 86_400_000), pickupDeadline: new Date(Date.now() + 10 * 86_400_000), sensitive: true, state: "LIVE",
-    },
-  });
+  for (const [category, bundleAllowed] of [["IT assets", false], ["Furniture", false], ["Vehicles", false], ["Machinery", false], ["Inventory", true], ["Scrap", true]] as const) {
+    await db.assetCategory.upsert({ where: { name: category }, update: {}, create: { name: category, bundleAllowed } });
+  }
+  await db.systemSetting.upsert({ where: { id: "main" }, update: {}, create: { id: "main" } });
   console.log(`Super-admin seeded: ${email}`);
 }
 

@@ -64,6 +64,8 @@ model user {
   approvals     WinnerApproval[] @relation("ApprovalReviewer")
   paymentReviews PaymentProof[] @relation("PaymentReviewer")
   disputes      Dispute[] @relation("DisputeReporter")
+  notifications Notification[]
+  ratings        AuctionRating[]
 }
 
 model session {
@@ -115,8 +117,17 @@ model Auction {
   condition         String
   conditionNotes    String?
   knownDefects      String?
+  isLot             Boolean      @default(false)
+  lotItems          String?
+  lotQuantity       Int?
+  lotExclusions     String?
   location          String
+  assetTag          String?
+  tagMissingReason  String?
+  photoKeys         String[]     @default([])
   imageUrl          String?
+  pickupRules       String       @default("Pickup is arranged after confirmed payment.")
+  paymentRules      String       @default("Bank transfer after winner approval.")
   startingPrice     Int
   reservePrice      Int?
   bidIncrement      Int          @default(10000)
@@ -127,9 +138,14 @@ model Auction {
   paymentDeadline   DateTime
   pickupDeadline    DateTime
   antiSniping       Boolean      @default(true)
+  antiSnipingMinutes Int         @default(5)
   sensitive         Boolean      @default(false)
+  itWipeConfirmed   Boolean      @default(false)
   wipeProofUrl      String?
   eligibilityNotes  String?
+  eligibilityRules  Json?
+  rejectedBidIds    String[]     @default([])
+  closedAt          DateTime?
   state             AuctionState @default(DRAFT)
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
@@ -140,6 +156,8 @@ model Auction {
   pickup            Pickup?
   disputes          Dispute[]
   auditEvents       AuditEvent[]
+  notifications     Notification[]
+  ratings           AuctionRating[]
 }
 
 model Bid {
@@ -196,6 +214,7 @@ model Pickup {
   scheduledAt DateTime?
   completedAt DateTime?
   evidenceUrl String?
+  acknowledgedAt DateTime?
   notes       String?
   auction     Auction      @relation(fields: [auctionId], references: [id], onDelete: Cascade)
 }
@@ -218,6 +237,7 @@ model AuditEvent {
   id        String   @id @default(cuid())
   auctionId String?
   actorId   String?
+  actorRole String?
   action    String
   before    Json?
   after     Json?
@@ -226,4 +246,60 @@ model AuditEvent {
   auction   Auction? @relation(fields: [auctionId], references: [id], onDelete: Cascade)
   actor     user?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
   @@index([auctionId, createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  auctionId String?
+  kind      String
+  title     String
+  body      String
+  readAt    DateTime?
+  emailedAt DateTime?
+  createdAt DateTime @default(now())
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  auction   Auction? @relation(fields: [auctionId], references: [id], onDelete: SetNull)
+  @@index([userId, createdAt])
+}
+
+model EmployeeInvitation {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  name       String
+  employeeId String   @unique
+  jobGrade   String
+  department String
+  location   String
+  role       String   @default("EMPLOYEE")
+  createdAt  DateTime @default(now())
+  usedAt     DateTime?
+}
+
+model AssetCategory {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  description   String?
+  active        Boolean  @default(true)
+  bundleAllowed Boolean  @default(false)
+  createdAt     DateTime @default(now())
+}
+
+model SystemSetting {
+  id                 String @id @default("main")
+  highValueThreshold Int    @default(1000000)
+  defaultPaymentHours Int   @default(48)
+  defaultPickupDays  Int    @default(7)
+}
+
+model AuctionRating {
+  id        String   @id @default(cuid())
+  auctionId String
+  userId    String
+  score     Int
+  comment   String?
+  createdAt DateTime @default(now())
+  auction   Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([auctionId, userId])
 }

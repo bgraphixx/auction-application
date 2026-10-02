@@ -3,7 +3,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { createUploadUrl } from "@/lib/storage";
 
-const bodySchema = z.object({ filename: z.string().min(1).max(180), contentType: z.enum(["image/jpeg", "image/png", "application/pdf"]) });
+const bodySchema = z.object({ filename: z.string().min(1).max(180), contentType: z.enum(["image/jpeg", "image/png", "application/pdf"]), size: z.number().int().min(1).max(10 * 1024 * 1024) });
 
 export async function POST(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
