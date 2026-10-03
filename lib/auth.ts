@@ -37,6 +37,7 @@ export const auth = betterAuth({
       jobGrade: { type: "string", required: false, input: false },
       department: { type: "string", required: false, input: false },
       location: { type: "string", required: false, input: false },
+      employmentStatus: { type: "string", defaultValue: "ACTIVE", input: false },
     },
   },
   databaseHooks: {
@@ -45,15 +46,15 @@ export const auth = betterAuth({
         if (newUser.email.toLowerCase() === process.env.SUPER_ADMIN_EMAIL?.toLowerCase()) return { data: newUser };
         const invite = await db.employeeInvitation.findUnique({ where: { email: newUser.email.toLowerCase() } });
         if (!invite || invite.usedAt) throw new APIError("FORBIDDEN", { message: "An administrator invitation is required." });
-        return { data: { ...newUser, name: invite.name, role: invite.role, employeeId: invite.employeeId, jobGrade: invite.jobGrade, department: invite.department, location: invite.location } };
+        return { data: { ...newUser, name: invite.name, role: invite.role, employeeId: invite.employeeId, jobGrade: invite.jobGrade, department: invite.department, location: invite.location, employmentStatus: invite.employmentStatus } };
       },
       after: async (newUser) => {
         if (newUser.email.toLowerCase() !== process.env.SUPER_ADMIN_EMAIL?.toLowerCase()) await db.employeeInvitation.updateMany({ where: { email: newUser.email.toLowerCase(), usedAt: null }, data: { usedAt: new Date() } });
       },
     } },
     session: { create: { before: async (newSession) => {
-      const user = await db.user.findUnique({ where: { id: newSession.userId }, select: { status: true } });
-      if (user?.status !== "ACTIVE") throw new APIError("FORBIDDEN", { message: "This employee account is inactive." });
+      const user = await db.user.findUnique({ where: { id: newSession.userId }, select: { status: true, employmentStatus: true } });
+      if (user?.status !== "ACTIVE" || user.employmentStatus === "TERMINATED") throw new APIError("FORBIDDEN", { message: "This employee account is inactive." });
       return { data: newSession };
     } } },
   },

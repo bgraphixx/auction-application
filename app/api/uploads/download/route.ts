@@ -14,8 +14,10 @@ export async function GET(request: Request) {
   const photo = await db.auction.findFirst({ where: { photoKeys: { has: key } }, select: { id: true, state: true } });
   const payment = await db.paymentProof.findFirst({ where: { proofUrl: key }, include: { auction: { include: { approval: true } } } });
   const handover = await db.pickup.findFirst({ where: { evidenceUrl: key }, include: { auction: { include: { approval: true } } } });
+  const refund = await db.refundRecord.findFirst({ where: { evidenceUrl: key }, include: { auction: { include: { approval: true } } } });
   const wipe = await db.auction.findFirst({ where: { wipeProofUrl: key } });
-  const allowed = owns || Boolean(photo && (!["DRAFT", "PENDING_APPROVAL"].includes(photo.state) || canPerform(session.user.role, "AUCTION_ADMIN"))) || Boolean(payment && (canPerform(session.user.role, "FINANCE") || payment.auction.approval?.bidderId === session.user.id)) || Boolean(handover && (canPerform(session.user.role, "FACILITIES") || handover.auction.approval?.bidderId === session.user.id)) || Boolean(wipe && (canPerform(session.user.role, "COMPLIANCE") || canPerform(session.user.role, "AUCTION_ADMIN")));
+  const dispute = await db.dispute.findFirst({ where: { evidenceKey: key }, select: { reporterId: true } });
+  const allowed = Boolean(dispute && (dispute.reporterId === session.user.id || canPerform(session.user.role, "COMPLIANCE"))) || owns || Boolean(photo && (!["DRAFT", "PENDING_APPROVAL"].includes(photo.state) || canPerform(session.user.role, "AUCTION_ADMIN"))) || Boolean(payment && (canPerform(session.user.role, "FINANCE") || payment.auction.approval?.bidderId === session.user.id)) || Boolean(handover && (canPerform(session.user.role, "FACILITIES") || handover.auction.approval?.bidderId === session.user.id)) || Boolean(refund && (canPerform(session.user.role, "FINANCE") || canPerform(session.user.role, "COMPLIANCE") || refund.auction.approval?.bidderId === session.user.id)) || Boolean(wipe && (canPerform(session.user.role, "COMPLIANCE") || canPerform(session.user.role, "AUCTION_ADMIN")));
   if (!allowed) return Response.json({ error: "File access denied" }, { status: 403 });
   return Response.redirect(await createDownloadUrl(key));
 }

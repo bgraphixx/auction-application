@@ -26,8 +26,8 @@ Dokploy can deploy this repository directly from the included multi-stage `Docke
 
 - Set every variable from `.env.example` in Dokploy; do not upload `.env`.
 - Run the Docker `migrator` target against the production database before each app deployment (`docker build --target migrator -t fewchore-migrator .` then run it with `DATABASE_URL` configured). This target contains Prisma and the committed migrations; the app container remains lean and non-root.
-- Run `npm run db:seed` once after migration, with production super-admin credentials configured in Dokploy.
+- Run `npm run db:seed` once from the migrator image after migration, with production `DATABASE_URL`, `SUPER_ADMIN_EMAIL`, and `SUPER_ADMIN_PASSWORD` configured. The lean app image does not contain the seed tooling.
 - Configure Dokploy's scheduler to `POST /api/cron` with the `x-cron-secret` header set to `CRON_SECRET`.
-- Point DigitalOcean Spaces CORS at the production application origin to permit the signed browser uploads.
+- Point DigitalOcean Spaces CORS at the application origin to permit signed browser uploads. If browser storage transfer is unavailable, authenticated uploads fall back through `/api/uploads/transfer` with the same user-owned object key and 10 MB limit. Ensure the deployment proxy accepts request bodies up to 10 MB.
 
 `GET /api/health` is available for the Dokploy health check.

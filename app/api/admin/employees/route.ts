@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/mail";
 
 const roles = ["EMPLOYEE", "AUCTION_ADMIN", "FINANCE", "FACILITIES", "COMPLIANCE", "SUPER_ADMIN"] as const;
-const bodySchema = z.object({ email: z.email(), name: z.string().min(3), employeeId: z.string().min(2), jobGrade: z.string().min(1), department: z.string().min(2), location: z.string().min(2), role: z.enum(roles) });
+const bodySchema = z.object({ email: z.email(), name: z.string().min(3), employeeId: z.string().min(2), jobGrade: z.string().min(1), department: z.string().min(2), location: z.string().min(2), role: z.enum(roles), employmentStatus: z.enum(["ACTIVE", "ON_LEAVE", "TERMINATED"]) });
 async function requireAdmin() { const session = await auth.api.getSession({ headers: await headers() }); return session?.user.role === "SUPER_ADMIN" ? session : null; }
 
 export async function POST(request: Request) {
@@ -32,7 +32,7 @@ export async function PATCH(request: Request) {
   const { id, ...values } = parsed.data;
   const before = await db.user.findUnique({ where: { id } });
   if (!before) return Response.json({ error: "Employee not found." }, { status: 404 });
-  if (id === session.user.id && (values.status !== "ACTIVE" || values.role !== "SUPER_ADMIN")) return Response.json({ error: "You cannot remove your own administrator access." }, { status: 400 });
-  await db.$transaction([db.user.update({ where: { id }, data: { ...values, email: values.email.toLowerCase() } }), ...(values.status === "SUSPENDED" ? [db.session.deleteMany({ where: { userId: id } })] : []), db.auditEvent.create({ data: { actorId: session.user.id, actorRole: session.user.role, action: "EMPLOYEE_PROFILE_UPDATED", before: { userId: id, role: before.role, status: before.status, employeeId: before.employeeId, jobGrade: before.jobGrade }, after: { role: values.role, status: values.status, employeeId: values.employeeId, jobGrade: values.jobGrade } } })]);
+  if (id === session.user.id && (values.status !== "ACTIVE" || values.role !== "SUPER_ADMIN" || values.employmentStatus !== "ACTIVE")) return Response.json({ error: "You cannot remove your own administrator access." }, { status: 400 });
+  await db.$transaction([db.user.update({ where: { id }, data: { ...values, email: values.email.toLowerCase() } }), ...(values.status === "SUSPENDED" || values.employmentStatus === "TERMINATED" ? [db.session.deleteMany({ where: { userId: id } })] : []), db.auditEvent.create({ data: { actorId: session.user.id, actorRole: session.user.role, action: "EMPLOYEE_PROFILE_UPDATED", before: { userId: id, role: before.role, status: before.status, employmentStatus: before.employmentStatus, employeeId: before.employeeId, jobGrade: before.jobGrade }, after: { role: values.role, status: values.status, employmentStatus: values.employmentStatus, employeeId: values.employeeId, jobGrade: values.jobGrade } } })]);
   return Response.json({ ok: true });
 }

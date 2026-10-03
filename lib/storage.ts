@@ -7,7 +7,13 @@ function spacesClient() {
   const accessKeyId = process.env.DO_SPACES_KEY;
   const secretAccessKey = process.env.DO_SPACES_SECRET;
   if (!endpoint || !region || !accessKeyId || !secretAccessKey) throw new Error("DigitalOcean Spaces is not configured");
-  return new S3Client({ endpoint, region, credentials: { accessKeyId, secretAccessKey } });
+  // The SDK adds Bucket to regional endpoints. Accept copied bucket URLs too.
+  const normalized = new URL(endpoint);
+  const bucket = process.env.DO_SPACES_BUCKET;
+  if (bucket && normalized.hostname === `${bucket}.${region}.digitaloceanspaces.com`) {
+    normalized.hostname = `${region}.digitaloceanspaces.com`;
+  }
+  return new S3Client({ endpoint: normalized.toString(), region, credentials: { accessKeyId, secretAccessKey } });
 }
 
 export async function createUploadUrl(key: string, contentType: string) {
@@ -31,4 +37,10 @@ export async function uploadExists(key: string) {
   } catch {
     return false;
   }
+}
+
+export async function storeUpload(key: string, contentType: string, body: Uint8Array) {
+  const bucket = process.env.DO_SPACES_BUCKET;
+  if (!bucket) throw new Error("DigitalOcean Spaces bucket is not configured");
+  await spacesClient().send(new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType, Body: body }));
 }

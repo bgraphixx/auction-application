@@ -42,6 +42,11 @@ enum DisputeStatus {
   DISMISSED
 }
 
+enum RefundStatus {
+  REQUESTED
+  CONFIRMED
+}
+
 model user {
   id            String   @id
   name          String
@@ -54,6 +59,7 @@ model user {
   department    String?
   location      String?
   status        String   @default("ACTIVE")
+  employmentStatus String @default("ACTIVE")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   accounts      account[]
@@ -62,6 +68,7 @@ model user {
   watchlist     Watchlist[]
   auditEvents   AuditEvent[] @relation("AuditActor")
   approvals     WinnerApproval[] @relation("ApprovalReviewer")
+  wins          WinnerApproval[] @relation("ApprovalBidder")
   paymentReviews PaymentProof[] @relation("PaymentReviewer")
   disputes      Dispute[] @relation("DisputeReporter")
   notifications Notification[]
@@ -158,6 +165,7 @@ model Auction {
   auditEvents       AuditEvent[]
   notifications     Notification[]
   ratings           AuctionRating[]
+  refund            RefundRecord?
 }
 
 model Bid {
@@ -191,6 +199,7 @@ model WinnerApproval {
   createdAt   DateTime @default(now())
   auction     Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
   reviewer    user     @relation("ApprovalReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+  bidder      user     @relation("ApprovalBidder", fields: [bidderId], references: [id], onDelete: Restrict)
 }
 
 model PaymentProof {
@@ -225,12 +234,14 @@ model Dispute {
   reporterId  String
   reason      String
   detail      String
+  evidenceKey String?
   status      DisputeStatus @default(OPEN)
   resolution  String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   auction     Auction       @relation(fields: [auctionId], references: [id], onDelete: Cascade)
   reporter    user          @relation("DisputeReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  refund      RefundRecord?
 }
 
 model AuditEvent {
@@ -272,6 +283,7 @@ model EmployeeInvitation {
   department String
   location   String
   role       String   @default("EMPLOYEE")
+  employmentStatus String @default("ACTIVE")
   createdAt  DateTime @default(now())
   usedAt     DateTime?
 }
@@ -302,4 +314,18 @@ model AuctionRating {
   auction   Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
   user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([auctionId, userId])
+}
+
+model RefundRecord {
+  id          String       @id @default(cuid())
+  auctionId   String       @unique
+  disputeId   String       @unique
+  amount      Int
+  status      RefundStatus @default(REQUESTED)
+  evidenceUrl String?
+  requestedAt DateTime     @default(now())
+  confirmedAt DateTime?
+  reviewerId  String?
+  auction     Auction      @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  dispute     Dispute      @relation(fields: [disputeId], references: [id], onDelete: Cascade)
 }
