@@ -38,6 +38,7 @@ export const auth = betterAuth({
       department: { type: "string", required: false, input: false },
       location: { type: "string", required: false, input: false },
       employmentStatus: { type: "string", defaultValue: "ACTIVE", input: false },
+      inviteToken: { type: "string", required: false, input: true },
     },
   },
   databaseHooks: {
@@ -45,7 +46,7 @@ export const auth = betterAuth({
       before: async (newUser) => {
         if (newUser.email.toLowerCase() === process.env.SUPER_ADMIN_EMAIL?.toLowerCase()) return { data: newUser };
         const invite = await db.employeeInvitation.findUnique({ where: { email: newUser.email.toLowerCase() } });
-        if (!invite || invite.usedAt) throw new APIError("FORBIDDEN", { message: "An administrator invitation is required." });
+        if (!invite || invite.usedAt || invite.token !== (newUser as any).inviteToken) throw new APIError("FORBIDDEN", { message: "A valid administrator invitation is required." });
         return { data: { ...newUser, name: invite.name, role: invite.role, employeeId: invite.employeeId, jobGrade: invite.jobGrade, department: invite.department, location: invite.location, employmentStatus: invite.employmentStatus } };
       },
       after: async (newUser) => {

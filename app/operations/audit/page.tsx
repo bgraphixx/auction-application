@@ -4,9 +4,13 @@ import { requireOperationsUser } from "@/lib/require-user";
 import DisputeActions from "./dispute-actions";
 import { canPerform } from "@/lib/permissions";
 import { dateTime, money, stateLabel } from "@/lib/presentation";
+import { redirect } from "next/navigation";
 
 export default async function AuditPage({ searchParams }: { searchParams: Promise<{ view?: string; id?: string }> }) {
   const session = await requireOperationsUser();
+  if (!canPerform(session.user.role, "COMPLIANCE") && !canPerform(session.user.role, "AUCTION_ADMIN")) {
+    redirect("/operations");
+  }
   const params = await searchParams;
   const view = params.view === "events" || params.view === "sensitive" ? params.view : "disputes";
   const [disputes, events, sensitive] = await Promise.all([
