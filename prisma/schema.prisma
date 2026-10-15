@@ -55,6 +55,9 @@ model user {
   image         String?
   role          String   @default("EMPLOYEE")
   employeeId    String?  @unique
+  contactEmail  String?  @unique
+  phone         String?  @unique
+  staffType     String?
   jobGrade      String?
   department    String?
   location      String?
@@ -269,6 +272,7 @@ model Notification {
   body      String
   readAt    DateTime?
   emailedAt DateTime?
+  smsSentAt DateTime?
   createdAt DateTime @default(now())
   user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
   auction   Auction? @relation(fields: [auctionId], references: [id], onDelete: SetNull)
@@ -281,6 +285,9 @@ model EmployeeInvitation {
   token      String   @unique @default(uuid())
   name       String
   employeeId String   @unique
+  contactEmail String? @unique
+  phone      String?  @unique
+  staffType  String?
   jobGrade   String
   department String
   location   String

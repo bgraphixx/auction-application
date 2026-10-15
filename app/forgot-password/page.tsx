@@ -28,7 +28,7 @@ export default function ForgotPasswordPage() {
           <h1>Asset Disposal</h1>
         </div>
         <form className="login-form" onSubmit={requestReset}>
-          <label>Company email<input name="email" type="email" required placeholder="you@fewchorefinance.com" /></label>
+          <label>Registered email<input name="email" type="email" required placeholder="you@example.com" /></label>
           {sent && <p className="form-success">Check your email for the reset link.</p>}
           <button className="primary-button full" disabled={busy}>{busy ? "Sending…" : "Send reset link"}</button>
           <Link href="/login">Back to sign in</Link>

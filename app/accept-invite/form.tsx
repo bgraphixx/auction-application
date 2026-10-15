@@ -3,10 +3,10 @@ import Image from "next/image";
 import { FormEvent, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
-export default function AcceptInviteForm({ email, token }: { email: string, token: string }) {
+export default function AcceptInviteForm({ email, contactEmail, employeeId, token }: { email: string, contactEmail: string | null, employeeId: string, token: string }) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setBusy(true); const form = new FormData(event.currentTarget); const result = await authClient.signUp.email({ name: String(form.get("name")), email: String(form.get("email")), password: String(form.get("password")), inviteToken: token } as any); setBusy(false); setMessage(result.error?.message ?? "Account created. Check your email to verify it before signing in."); }
+  async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setBusy(true); const form = new FormData(event.currentTarget); const result = await authClient.signUp.email({ name: String(form.get("name")), email: String(form.get("email")), password: String(form.get("password")), inviteToken: token } as any); setBusy(false); setMessage(result.error?.message ?? (contactEmail ? "Account created. Check your email to verify it before signing in." : "Account created. You can now sign in with your staff ID or phone number.")); }
   const [showPassword, setShowPassword] = useState(false);
   return <main className="access-page">
     <aside className="access-panel">
@@ -24,7 +24,7 @@ export default function AcceptInviteForm({ email, token }: { email: string, toke
         </div>
         <form className="login-form" onSubmit={(event) => void submit(event)}>
           <label>Name<input name="name" required /></label>
-          <label>Invited email<input name="email" type="email" defaultValue={email} required readOnly /></label>
+          {contactEmail ? <label>Invited email<input name="email" type="email" defaultValue={email} required readOnly /></label> : <><p className="muted">Create an account for staff ID {employeeId}. You will sign in with your staff ID or phone number.</p><input name="email" type="hidden" value={email} /></>}
           <label>
             <div style={{ display: "flex", justifyContent: "space-between" }}>Password <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ background: "none", border: 0, color: "var(--bright)", cursor: "pointer", fontWeight: 700 }}>{showPassword ? "Hide" : "Show"}</button></div>
             <input name="password" type={showPassword ? "text" : "password"} minLength={12} required />

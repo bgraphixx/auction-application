@@ -7,5 +7,5 @@ export default async function AcceptInvitePage({ searchParams }: { searchParams:
   if (!params.token) return notFound();
   const invite = await db.employeeInvitation.findUnique({ where: { token: params.token } });
   if (!invite || invite.usedAt) return notFound();
-  return <AcceptInviteForm email={invite.email} token={invite.token} />;
+  return <AcceptInviteForm email={invite.email} contactEmail={invite.contactEmail} employeeId={invite.employeeId} token={invite.token} />;
 }

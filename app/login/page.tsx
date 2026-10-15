@@ -16,8 +16,15 @@ export default function LoginPage() {
     setError("");
     setPending(true);
     const form = new FormData(event.currentTarget);
+    const resolved = await fetch("/api/auth/resolve-login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifier: String(form.get("identifier")) }) });
+    const result = await resolved.json().catch(() => null);
+    if (!resolved.ok) {
+      setPending(false);
+      setError(result?.error ?? "We could not sign you in.");
+      return;
+    }
     const { error: authError } = await authClient.signIn.email({
-      email: String(form.get("email")), password: String(form.get("password")), callbackURL: `${window.location.origin}/employee/dashboard`,
+      email: result.email, password: String(form.get("password")), callbackURL: `${window.location.origin}/employee/dashboard`,
     });
     setPending(false);
     if (authError) setError(authError.message ?? "We could not sign you in.");
@@ -40,7 +47,7 @@ export default function LoginPage() {
           <h1>Asset Disposal</h1>
         </div>
         <form className="login-form" onSubmit={signIn}>
-          <label>Company email<input name="email" type="email" placeholder="you@fewchorefinance.com" autoComplete="email" required /></label>
+          <label>Staff ID, phone number, or email<input name="identifier" placeholder="FFC/005, 08012345678, or you@example.com" autoComplete="username" required /></label>
           <label>
             <div style={{ display: "flex", justifyContent: "space-between" }}>Password <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ background: "none", border: 0, color: "var(--bright)", cursor: "pointer", fontWeight: 700 }}>{showPassword ? "Hide" : "Show"}</button></div>
             <input name="password" type={showPassword ? "text" : "password"} placeholder="Enter your password" autoComplete="current-password" minLength={12} required />

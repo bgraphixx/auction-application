@@ -98,7 +98,7 @@ Draft
 Each employee must have:
 
 - Full name
-- Company email
+- Registered email (optional when a staff ID and phone number are registered)
 - Employee ID number
 - Job grade
 - Department
